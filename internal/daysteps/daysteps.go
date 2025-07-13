@@ -17,31 +17,33 @@ const (
 	mInKm = 1000
 )
 
+// var myLog = log.New(os.Stdout, "", log.LstdFlags|log.Lshortfile)
+
 // parsePackage
 //
 // Парсинг строки вида "678,0h50m"
 func parsePackage(data string) (int, time.Duration, error) {
 	strs := strings.Split(data, ",")
 	if len(strs) != 2 {
-		return 0, time.Duration(0), errors.New("bad income data")
+		return 0, 0, errors.New("(parsePackage) bad income data")
 	}
 
 	steps, walkDur := strs[0], strs[1]
 
 	if steps == "" || walkDur == "" {
-		return 0, time.Duration(0), errors.New("no income required data")
+		return 0, 0, errors.New("(parsePackage) no income required data")
 	}
 
 	// steps
 	stepsCnt, err := strconv.Atoi(steps)
-	if err != nil || stepsCnt < 0 {
-		return 0, time.Duration(0), fmt.Errorf("bad income steps data: %v", err)
+	if err != nil || stepsCnt <= 0 {
+		return 0, 0, fmt.Errorf("(parsePackage) bad income steps data: %v", err)
 	}
 
 	// duration of walk
 	duration, err := time.ParseDuration(walkDur)
-	if err != nil {
-		return 0, time.Duration(0), fmt.Errorf("bad income duration data: %v", err)
+	if err != nil || duration <= 0 {
+		return 0, 0, fmt.Errorf("(parsePackage) bad income duration data: %v", err)
 	}
 
 	return stepsCnt, duration, nil
@@ -54,13 +56,13 @@ func parsePackage(data string) (int, time.Duration, error) {
 //	height — рост пользователя в метрах.
 func DayActionInfo(data string, weight, height float64) string {
 	if data == "" || weight <= 0 || height <= 0 {
-		log.Println("DayActionInfo: Bad input data")
+		log.Println("(DayActionInfo) Bad input data")
 		return ""
 	}
 
 	steps, walkDur, err := parsePackage(data)
 	if err != nil {
-		log.Println(err)
+		log.Println("(DayActionInfo) bad parsePackage calculate:", err)
 		return ""
 	}
 
@@ -72,14 +74,13 @@ func DayActionInfo(data string, weight, height float64) string {
 
 	calories, err := spcs.WalkingSpentCalories(steps, weight, height, walkDur)
 	if err != nil {
-		log.Println(err)
+		log.Println("(DayActionInfo) bad WalkingSpentCalories calculate:", err)
 		return ""
 	}
 
 	output := fmt.Sprintf(
-		"Количество шагов: %d.\nДистанция составила %.2f км.\nВы сожгли %.2f ккал.",
-		steps, distKm, calories,
-	)
+		"Количество шагов: %d.\nДистанция составила %.2f км.\nВы сожгли %.2f ккал.\n",
+		steps, distKm, calories)
 
 	return output
 }
