@@ -1,6 +1,12 @@
 package daysteps
 
 import (
+	"errors"
+	"fmt"
+	spcs "github.com/Yandex-Practicum/tracker/internal/spentcalories"
+	"log"
+	"strconv"
+	"strings"
 	"time"
 )
 
@@ -11,10 +17,69 @@ const (
 	mInKm = 1000
 )
 
+// parsePackage
+//
+// Парсинг строки вида "678,0h50m"
 func parsePackage(data string) (int, time.Duration, error) {
-	// TODO: реализовать функцию
+	strs := strings.Split(data, ",")
+	if len(strs) != 2 {
+		return 0, time.Duration(0), errors.New("bad income data")
+	}
+
+	steps, walkDur := strs[0], strs[1]
+
+	if steps == "" || walkDur == "" {
+		return 0, time.Duration(0), errors.New("no income required data")
+	}
+
+	// steps
+	stepsCnt, err := strconv.Atoi(steps)
+	if err != nil || stepsCnt < 0 {
+		return 0, time.Duration(0), fmt.Errorf("bad income steps data: %v", err)
+	}
+
+	// duration of walk
+	duration, err := time.ParseDuration(walkDur)
+	if err != nil {
+		return 0, time.Duration(0), fmt.Errorf("bad income duration data: %v", err)
+	}
+
+	return stepsCnt, duration, nil
 }
 
+// DayActionInfo
+//
+//	data — строка с данными, содержащими количество шагов и продолжительность прогулки в формате 3h50m,
+//	weight — вес пользователя в килограммах,
+//	height — рост пользователя в метрах.
 func DayActionInfo(data string, weight, height float64) string {
-	// TODO: реализовать функцию
+	if data == "" || weight <= 0 || height <= 0 {
+		log.Println("DayActionInfo: Bad input data")
+		return ""
+	}
+
+	steps, walkDur, err := parsePackage(data)
+	if err != nil {
+		log.Println(err)
+		return ""
+	}
+
+	if steps <= 0 {
+		return ""
+	}
+
+	distKm := float64(steps) * stepLength / float64(mInKm)
+
+	calories, err := spcs.WalkingSpentCalories(steps, weight, height, walkDur)
+	if err != nil {
+		log.Println(err)
+		return ""
+	}
+
+	output := fmt.Sprintf(
+		"Количество шагов: %d.\nДистанция составила %.2f км.\nВы сожгли %.2f ккал.",
+		steps, distKm, calories,
+	)
+
+	return output
 }
