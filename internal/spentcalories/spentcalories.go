@@ -20,19 +20,25 @@ const (
 func parseTraining(data string) (int, string, time.Duration, error) {
 	strs := strings.Split(data, ",")
 	if len(strs) != 3 {
-		return 0, "", 0, errors.New("(parseTraining) bad income data")
+		return 0, "", 0, errors.New("bad income data")
 	}
 
 	steps, activity, dur := strs[0], strs[1], strs[2]
 
 	stepsCnt, err := strconv.Atoi(steps)
-	if err != nil || stepsCnt <= 0 {
-		return 0, "", 0, fmt.Errorf("(parseTraining) bad income steps data: %v", err)
+	if err != nil {
+		return 0, "", 0, fmt.Errorf("bad income steps data: %w", err)
+	}
+	if stepsCnt <= 0 {
+		return 0, "", 0, fmt.Errorf("bad income steps value: %v", stepsCnt)
 	}
 
 	duration, err := time.ParseDuration(dur)
-	if err != nil || duration <= 0 {
-		return 0, "", 0, fmt.Errorf("(parseTraining) bad income duration data: %v", err)
+	if err != nil {
+		return 0, "", 0, fmt.Errorf("bad income duration data: %w", err)
+	}
+	if duration <= 0 {
+		return 0, "", 0, fmt.Errorf("bad income duration value: %v", duration)
 	}
 
 	return stepsCnt, activity, duration, nil
@@ -46,7 +52,7 @@ func distance(steps int, height float64) float64 {
 // meanSpeed
 func meanSpeed(steps int, height float64, duration time.Duration) float64 {
 	if duration <= 0 {
-		return 0.
+		return 0.0
 	}
 
 	dist := distance(steps, height)
@@ -61,30 +67,24 @@ func meanSpeed(steps int, height float64, duration time.Duration) float64 {
 func TrainingInfo(data string, weight, height float64) (string, error) {
 	steps, activity, duration, err := parseTraining(data)
 	if err != nil {
-		return "", fmt.Errorf("(TrainingInfo) bad parseTraining calculate: %v", err)
+		return "", fmt.Errorf("bad parseTraining calculate: %w", err)
 	}
 
-	calories := -1.
-	if activity == "Ходьба" {
-		caloriesTmp, err := WalkingSpentCalories(steps, weight, height, duration)
-		if err != nil {
-			return "", fmt.Errorf("(TrainingInfo) bad WalkingSpentCalories calculate: %v", err)
+	var calories float64
+	var errSwitch error
+	switch activity {
+	case "Ходьба":
+		calories, errSwitch = WalkingSpentCalories(steps, weight, height, duration)
+		if errSwitch != nil {
+			return "", fmt.Errorf("bad WalkingSpentCalories calculate: %w", err)
 		}
-
-		calories = caloriesTmp
-	}
-
-	if activity == "Бег" {
-		caloriesTmp, err := RunningSpentCalories(steps, weight, height, duration)
-		if err != nil {
-			return "", fmt.Errorf("(TrainingInfo) bad RunningSpentCalories calculate: %v", err)
+	case "Бег":
+		calories, errSwitch = RunningSpentCalories(steps, weight, height, duration)
+		if errSwitch != nil {
+			return "", fmt.Errorf("bad RunningSpentCalories calculate: %w", err)
 		}
-
-		calories = caloriesTmp
-	}
-
-	if calories == -1. {
-		return "", errors.New("(TrainingInfo) неизвестный тип тренировки")
+	default:
+		return "", errors.New("неизвестный тип тренировки")
 	}
 
 	dist := distance(steps, height)
@@ -104,12 +104,12 @@ func TrainingInfo(data string, weight, height float64) (string, error) {
 //	duration — продолжительность ходьбы.
 func RunningSpentCalories(steps int, weight, height float64, duration time.Duration) (float64, error) {
 	if steps <= 0 || weight <= 0 || height <= 0 || duration <= 0 {
-		return 0.0, errors.New("(RunningSpentCalories) bad income data")
+		return 0.0, errors.New("bad income data: some values <= 0")
 	}
 
 	mSpeed := meanSpeed(steps, height, duration)
 
-	calories := duration.Minutes() * weight * mSpeed / 60
+	calories := duration.Minutes() * weight * mSpeed / minInH
 
 	return calories, nil
 }
@@ -121,12 +121,12 @@ func RunningSpentCalories(steps int, weight, height float64, duration time.Durat
 //	duration — продолжительность ходьбы.
 func WalkingSpentCalories(steps int, weight, height float64, duration time.Duration) (float64, error) {
 	if steps <= 0 || weight <= 0 || height <= 0 || duration <= time.Duration(0) {
-		return 0.0, errors.New("(WalkingSpentCalories) bad income data")
+		return 0.0, errors.New("bad income data: some values <= 0")
 	}
 
 	mSpeed := meanSpeed(steps, height, duration)
 
-	calories := walkingCaloriesCoefficient * (duration.Minutes() * weight * mSpeed / 60)
+	calories := walkingCaloriesCoefficient * (duration.Minutes() * weight * mSpeed / minInH)
 
 	return calories, nil
 }
